@@ -29,3 +29,9 @@ Moderator account was assigned in Supabase `public.admins`; log in via `admin.ht
 - Server-side basic abuse safeguards reject repeated identical submissions within 15 minutes and cap submissions at 60 within a 10-minute window; this is **not** a replacement for CAPTCHA or an IP-aware abuse control.
 - Expanded privacy draft explains spreadsheet handling and hosting. **Do not invite public submissions** until a real privacy contact, lawful basis and retention policy are confirmed.
 - Supabase Auth advisor reports leaked-password protection is not enabled; consider enabling it for the administrator account.
+
+## Private privacy request workflow
+- New `contact.html` form accepts corrections, removals, privacy questions and other enquiries, and stores them in `public.privacy_requests`.
+- Requests contain an email address and message; **only authorised HouseLedger administrators** can read them through the private inbox in `admin.html`. There is currently no email notification or automatic response: the administrator must check this inbox and reply manually.
+- RLS denies anonymous reads, and only admin sessions can view/update/delete records. The form limits duplicate requests and flood volume; public clients cannot forge timestamps. Homeowner submissions now also display an explicit acknowledgement before submission and a hidden honeypot field.
+- This does **not** constitute complete CAPTCHA protection or a legally complete privacy notice. The site owner must provide their actual controller identity and decide the lawful basis, data retention and data-subject request handling before a public campaign. Consider Cloudflare Turnstile with server-side verification for the next stage.
