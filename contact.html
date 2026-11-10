@@ -25,6 +25,7 @@ button:disabled{opacity:.5}.note{font-size:13px;color:#667}
 <textarea id="message" minlength="20" maxlength="3000" required placeholder="Tell us what needs changing or removing. Please avoid including bank details or unnecessary personal information."></textarea>
 <div class="hp" aria-hidden="true"><label>Website <input tabindex="-1" autocomplete="off" id="website"></label></div>
 <p class="note">Only HouseLedger administrators can read the details of this request. Do not include account passwords, PPS numbers or bank information. We may need to verify your connection with a listing before altering it.</p>
+<div id="turnstile-contact" style="margin:18px 0" aria-label="Security verification"></div>
 <button type="submit" id="submit">Send private request</button>
 <p id="error" role="alert" hidden></p><p id="success" role="status" hidden></p>
 </form></div>
@@ -33,20 +34,32 @@ button:disabled{opacity:.5}.note{font-size:13px;color:#667}
 <script>
 'use strict';
 const cfg=window.BUILDCOST_CONFIG||{};
+const PROTECTED=Boolean(cfg.turnstileSiteKey);
+let contactTurnstileToken='';
 const f=document.getElementById('request-form');
 const error=document.getElementById('error'),success=document.getElementById('success'),btn=document.getElementById('submit');
 f.addEventListener('submit',async e=>{
  e.preventDefault();
  if(document.getElementById('website').value.trim()){success.hidden=false;success.textContent='Request received.';f.reset();return}
  error.hidden=true;success.hidden=true;
+ if(PROTECTED&&!contactTurnstileToken){error.textContent='Complete the security check first.';error.hidden=false;return}
  if(!cfg.supabaseUrl||!cfg.supabaseAnonKey){error.textContent='The contact form is unavailable. Please try again later.';error.hidden=false;return}
  btn.disabled=true;btn.textContent='Sending…';
  const payload={request_type:document.getElementById('type').value,requester_email:document.getElementById('email').value.trim(),build_reference:document.getElementById('reference').value.trim()||null,message:document.getElementById('message').value.trim()};
  try{
- const resp=await fetch(cfg.supabaseUrl.replace(/\/$/,'')+'/rest/v1/privacy_requests',{method:'POST',headers:{'apikey':cfg.supabaseAnonKey,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});
- if(!resp.ok)throw new Error('Could not send your request ('+resp.status+'). Please try again later.');
+ const resp=PROTECTED
+ ?await fetch(cfg.supabaseUrl.replace(/\/$/,'')+'/functions/v1/houseledger-submit',{method:'POST',headers:{'apikey':cfg.supabaseAnonKey,'Content-Type':'application/json'},body:JSON.stringify({kind:'contact',data:payload,turnstileToken:contactTurnstileToken})})
+ :await fetch(cfg.supabaseUrl.replace(/\/$/,'')+'/rest/v1/privacy_requests',{method:'POST',headers:{'apikey':cfg.supabaseAnonKey,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});
+ if(!resp.ok){const json=await resp.json().catch(()=>({}));throw new Error(json.message||'Could not send your request ('+resp.status+'). Please try again later.');}
  f.reset();success.textContent='Your private request has been recorded. Please keep a copy of the information you submitted.';success.hidden=false;
  }catch(ex){error.textContent=ex.message;error.hidden=false}
- finally{btn.disabled=false;btn.textContent='Send private request'}
+ finally{btn.disabled=false;btn.textContent='Send private request';if(PROTECTED){contactTurnstileToken='';if(window.turnstile)window.turnstile.reset();}}
 });
+if(PROTECTED){
+ const script=document.createElement('script');
+ script.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';script.async=true;
+ script.onload=()=>{if(window.turnstile)window.turnstile.render('#turnstile-contact',{sitekey:cfg.turnstileSiteKey,callback:t=>{contactTurnstileToken=t},'expired-callback':()=>{contactTurnstileToken=''},'error-callback':()=>{contactTurnstileToken=''}})};
+ script.onerror=()=>{error.textContent='Security check could not load. Please try again later.';error.hidden=false};
+ document.head.appendChild(script);
+}
 </script></body></html>
