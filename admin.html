@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HouseLedger — Review submissions</title><style>:root{font-family:system-ui,Arial;color:#19323a}body{margin:0;background:#f8f7f3}header{background:#173943;color:white;padding:22px max(20px,calc((100% - 950px)/2))}main{max-width:950px;margin:35px auto;padding:0 20px}.panel{background:white;border:1px solid #dbe4df;border-radius:14px;padding:23px;margin:17px 0;line-height:1.6}input{width:100%;padding:11px;margin:4px 0 13px;border:1px solid #ccd9d4;border-radius:8px;box-sizing:border-box}button{background:#22755c;color:white;border:0;border-radius:8px;padding:10px 14px;font:inherit;cursor:pointer;margin:3px}button.reject{background:#934844}button.secondary{background:#e7efeb;color:#173943}button:disabled{opacity:.5}p.small{font-size:13px;color:#657570;overflow-wrap:anywhere}pre{white-space:pre-wrap;word-break:break-word;background:#f4f7f5;padding:12px;border-radius:9px}a{color:inherit}</style><script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script></head><body><header><h1>HouseLedger — Moderation</h1><a href="index.html">← Public website</a></header><main><div id="message"></div><section id="login" class="panel"><h2>Admin sign in</h2><p class="small">Only an account added to the <code>admins</code> table can review submissions.</p><label>Email<input id="email" autocomplete="username" type="email"></label><label>Password<input id="password" autocomplete="current-password" type="password"></label><button id="sign-in">Sign in</button></section><section id="review" hidden><div class="panel"><button id="reload">Refresh queue</button><button class="secondary" id="logout">Sign out</button><p class="small">Review all text for personal information and confirm the reported costs are plausible before publishing. Approval does not mean independently verified.</p></div><div id="queue"></div></section></main><script>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HouseLedger — Review submissions</title><style>:root{font-family:system-ui,Arial;color:#19323a}body{margin:0;background:#f8f7f3}header{background:#173943;color:white;padding:22px max(20px,calc((100% - 950px)/2))}main{max-width:950px;margin:35px auto;padding:0 20px}.panel{background:white;border:1px solid #dbe4df;border-radius:14px;padding:23px;margin:17px 0;line-height:1.6}input{width:100%;padding:11px;margin:4px 0 13px;border:1px solid #ccd9d4;border-radius:8px;box-sizing:border-box}button{background:#22755c;color:white;border:0;border-radius:8px;padding:10px 14px;font:inherit;cursor:pointer;margin:3px}button.reject{background:#934844}button.secondary{background:#e7efeb;color:#173943}button:disabled{opacity:.5}p.small{font-size:13px;color:#657570;overflow-wrap:anywhere}pre{white-space:pre-wrap;word-break:break-word;background:#f4f7f5;padding:12px;border-radius:9px}a{color:inherit}button.danger{background:#8d3434}.actions{display:flex;flex-wrap:wrap;gap:5px}.editgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}.editgrid label{font-size:13px;font-weight:650}textarea,select{display:block;width:100%;padding:10px;border:1px solid #ccd9d4;border-radius:8px;font:inherit;box-sizing:border-box}textarea{min-height:110px}.status-heading{margin-top:28px}.status-pill{font-size:12px;color:#52666d}button:focus-visible{outline:3px solid #88ae98}</style><script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script></head><body><header><h1>HouseLedger — Moderation</h1><a href="index.html">← Public website</a></header><main><div id="message"></div><section id="login" class="panel"><h2>Admin sign in</h2><p class="small">Only an account added to the <code>admins</code> table can review submissions.</p><label>Email<input id="email" autocomplete="username" type="email"></label><label>Password<input id="password" autocomplete="current-password" type="password"></label><button id="sign-in">Sign in</button></section><section id="review" hidden><div class="panel"><button id="reload">Refresh queue</button><button class="secondary" id="logout">Sign out</button><p class="small">Review all text for personal information and confirm the reported costs are plausible before publishing. Approval does not mean independently verified.</p></div><div id="queue"></div><section id="editor" class="panel" hidden aria-label="Edit build"><h2>Edit submission</h2><form id="edit-form"></form><button id="cancel-edit" class="secondary" type="button">Cancel</button></section></section></main><script>
 'use strict';
 const cfg=window.BUILDCOST_CONFIG||{};
 const $=id=>document.getElementById(id);
@@ -7,7 +7,67 @@ const client=cfg.supabaseUrl&&cfg.supabaseAnonKey&&window.supabase?window.supaba
 const message=(text,error=false)=>{$('message').innerHTML=`<div class="panel" role="status" style="border-color:${error?'#c76f64':'#aacdbd'}">${esc(text)}</div>`};
 async function login(){if(!client){message('Configure config.js first, and connect to the internet to load the authentication library.',true);return}try{const {error}=await client.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(error)throw error;await init()}catch(e){message(e.message,true)}}
 async function init(){if(!client){message('Supabase configuration is missing.',true);return}const {data:{user}}=await client.auth.getUser();if(!user){$('login').hidden=false;$('review').hidden=true;return}const {data,error}=await client.from('admins').select('user_id').eq('user_id',user.id).maybeSingle();if(error||!data){message('You are signed in but this account is not approved as an admin.',true);await client.auth.signOut();return}$('login').hidden=true;$('review').hidden=false;$('message').innerHTML='';await load()}
-async function load(){const {data,error}=await client.from('builds').select('*').eq('status','pending').order('created_at',{ascending:false}).limit(200);if(error){message(error.message,true);return}$('queue').innerHTML=`<h2>Pending submissions (${data.length})</h2>`+(!data.length?'<div class="panel">No pending submissions.</div>':data.map(x=>{const fields=['title','county','year','size','storeys','rooms','method','finish','structure','ber','cost','budget','include_site','breakdown_mode','site','fees','ground','shell','services','interior','external','included','excluded','notes'];return `<article class="panel"><h3>${esc(x.title)} — €${Number(x.cost).toLocaleString('en-IE')}</h3><p class="small">Submitted ${esc(new Date(x.created_at).toLocaleString('en-IE'))}</p><details><summary>Review all submitted fields</summary><pre>${fields.map(k=>`${esc(k)}: ${esc(x[k]??'Not supplied')}`).join('\n')}</pre></details><button data-action="approved" data-id="${esc(x.id)}">Approve</button><button class="reject" data-action="rejected" data-id="${esc(x.id)}">Reject</button></article>`}).join(''));document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>changeStatus(b.dataset.id,b.dataset.action,b))}
-async function changeStatus(id,status,button){if(!confirm(status==='approved'?'Publish this build publicly?':'Reject this submission?'))return;button.disabled=true;const {error}=await client.from('builds').update({status}).eq('id',id);if(error){message(error.message,true);button.disabled=false}else await load()}
+async function load(){
+ const statuses=['pending','approved','rejected'];
+ const {data,error}=await client.from('builds').select('*').order('created_at',{ascending:false}).limit(500);
+ if(error){message(error.message,true);return}
+ window.reviewBuilds=new Map(data.map(x=>[x.id,x]));
+ $('editor').hidden=true;
+ $('queue').innerHTML=statuses.map(status=>{
+ const rows=data.filter(x=>x.status===status);
+ return `<section aria-label="${status} submissions"><h2 class="status-heading">${status[0].toUpperCase()+status.slice(1)} (${rows.length})</h2>${rows.length?rows.map(x=>`<article class="panel"><h3>${esc(x.title)} — €${Number(x.cost).toLocaleString('en-IE')}</h3><p class="small">${esc(x.county)}, ${esc(x.size)} m² · ${esc(x.year)} · ${esc(new Date(x.created_at).toLocaleString('en-IE'))}</p><details><summary>View submitted information</summary><pre>${['title','county','year','size','cost','budget','method','finish','structure','ber','storeys','rooms','include_site','breakdown_mode','site','fees','ground','shell','services','interior','external','included','excluded','notes'].map(k=>`${esc(k)}: ${esc(x[k]??'Not supplied')}`).join('\n')}</pre></details><div class="actions"><button type="button" data-edit="${esc(x.id)}" class="secondary">Edit</button>${status!=='approved'?`<button type="button" data-status="approved" data-id="${esc(x.id)}">Approve</button>`:''}${status!=='rejected'?`<button type="button" data-status="rejected" data-id="${esc(x.id)}" class="reject">Reject</button>`:''}<button type="button" data-delete="${esc(x.id)}" class="danger">Delete permanently</button></div></article>`).join(''):'<div class="panel">No submissions in this category.</div>'}</section>`;
+ }).join('');
+ document.querySelectorAll('[data-status]').forEach(b=>b.onclick=()=>changeStatus(b.dataset.id,b.dataset.status,b));
+ document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>showEditor(b.dataset.edit));
+ document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>removeBuild(b.dataset.delete,b));
+}
+function showEditor(id){
+ const x=window.reviewBuilds.get(id);if(!x)return;
+ const fields=[
+ ['title','House title','text'],['county','County','county'],['year','Completion year','number'],['size','Floor area (m²)','number'],['cost','Final cost (€)','number'],['budget','Original budget (€)','number'],
+ ['storeys','Storeys','number'],['rooms','Bedrooms','number'],['method','Build method','text'],['finish','Finish standard','text'],['structure','Construction type','text'],['ber','BER','text'],
+ ['site','Site purchase (€)','number'],['fees','Professional fees (€)','number'],['ground','Groundworks (€)','number'],['shell','Structure, roof and windows (€)','number'],['services','Mechanical and electrical (€)','number'],['interior','Interior fit-out (€)','number'],['external','External works (€)','number'],
+ ['included','Included costs','textarea'],['excluded','Excluded costs','textarea'],['notes','Homeowner notes','textarea']
+ ];
+ const counties=['Carlow','Cavan','Clare','Cork','Donegal','Dublin','Galway','Kerry','Kildare','Kilkenny','Laois','Leitrim','Limerick','Longford','Louth','Mayo','Meath','Monaghan','Offaly','Roscommon','Sligo','Tipperary','Waterford','Westmeath','Wexford','Wicklow'];
+ const form=$('edit-form');
+ form.innerHTML=`<input type="hidden" name="id" value="${esc(id)}"><div class="editgrid">${fields.map(([key,label,kind])=>`<label>${esc(label)}${kind==='textarea'?`<textarea name="${key}" maxlength="${key==='notes'?10000:4000}">${esc(x[key]??'')}</textarea>`:kind==='county'?`<select name="county">${counties.map(c=>`<option value="${esc(c)}" ${x.county===c?'selected':''}>${esc(c)}</option>`).join('')}</select>`:`<input name="${key}" type="${kind}" ${kind==='number'?'step="any" min="0"':''} value="${esc(x[key]??'')}" ${['title','cost','size','year'].includes(key)?'required':''}>`}</label>`).join('')}</div><label><input type="checkbox" name="include_site" ${x.include_site?'checked':''}> Site cost included in final total</label><p><button type="submit">Save changes</button></p>`;
+ form.onsubmit=saveEdit;
+ $('editor').hidden=false;
+ $('editor').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function saveEdit(e){
+ e.preventDefault();const form=e.currentTarget;const id=form.elements.namedItem('id').value;
+ const numberFields=new Set(['year','size','cost','budget','storeys','rooms','site','fees','ground','shell','services','interior','external']);
+ const permitted=['title','county','year','size','cost','budget','storeys','rooms','method','finish','structure','ber','site','fees','ground','shell','services','interior','external','included','excluded','notes'];
+ const changes={};
+ for(const key of permitted){
+ const raw=form.elements.namedItem(key).value;
+ changes[key]=numberFields.has(key)?(raw.trim()===''?null:Number(raw)):raw;
+ }
+ changes.include_site=form.elements.namedItem('include_site').checked;
+ if(!Number.isFinite(changes.cost)||changes.cost<=0||!Number.isFinite(changes.size)||changes.size<=0){message('Enter a positive build cost and floor area.',true);return}
+ const submit=form.querySelector('button[type="submit"]');submit.disabled=true;
+ const {data,error}=await client.from('builds').update(changes).eq('id',id).select('id');
+ if(error||!data?.length){message(error?.message||'No row was updated.',true);submit.disabled=false;return}
+ message('Changes saved successfully.');await load();
+}
+async function removeBuild(id,button){
+ const x=window.reviewBuilds.get(id);if(!x)return;
+ if(!confirm(`Permanently delete "${x.title}" (${x.county})? This cannot be undone.`))return;
+ if(prompt('Type DELETE to permanently remove this submission:')!=='DELETE')return;
+ button.disabled=true;
+ const {data,error}=await client.from('builds').delete().eq('id',id).select('id');
+ if(error||!data?.length){message(error?.message||'No record was deleted.',true);button.disabled=false;return}
+ message('Submission permanently deleted.');await load();
+}
+async function changeStatus(id,status,button){
+ if(!confirm(status==='approved'?'Publish this build publicly?':'Reject this submission?'))return;
+ button.disabled=true;
+ const {data,error}=await client.from('builds').update({status}).eq('id',id).select('id');
+ if(error||!data?.length){message(error?.message||'No row was updated.',true);button.disabled=false}
+ else {message(status==='approved'?'Build published.':'Build rejected.');await load()}
+}
+$('cancel-edit').onclick=()=>{$('editor').hidden=true};
 $('sign-in').onclick=login;$('reload').onclick=load;$('logout').onclick=async()=>{await client.auth.signOut();$('login').hidden=false;$('review').hidden=true};init();
 </script></body></html>
