@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Contact HouseLedger — private request</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#19313b}
+*{box-sizing:border-box}body{background:#f8f7f3;margin:0;padding:36px 18px}main{max-width:660px;margin:0 auto}
+a{color:#22755c}.panel{background:white;border:1px solid #dbe4df;padding:28px;border-radius:16px;box-shadow:0 5px 25px #163a3d10}
+h1{margin:20px 0 8px}p{line-height:1.6;color:#5a6d72}label{display:block;font-size:14px;font-weight:700;margin:17px 0 6px}
+input,select,textarea{display:block;width:100%;padding:12px;border:1px solid #c9d7d3;border-radius:9px;font:inherit}
+textarea{min-height:155px;resize:vertical}button{border:0;border-radius:9px;padding:13px 20px;background:#22755c;color:white;font:inherit;font-weight:750;cursor:pointer}
+button:disabled{opacity:.5}.note{font-size:13px;color:#667}
+#error{color:#923d3d}#success{color:#206446} .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+</style><script src="config.js"></script></head><body>
+<main><a href="index.html">← HouseLedger</a>
+<h1>Contact HouseLedger privately</h1>
+<p>Use this form to request a correction or removal of a house listing, or to ask a privacy question. Requests are sent to a private admin inbox, not published on the website.</p>
+<div class="panel"><form id="request-form">
+<label for="type">What do you need?</label>
+<select id="type" required><option value="correction">Correct a listing</option><option value="removal">Remove my submission</option><option value="privacy">Ask about privacy or personal information</option><option value="other">Something else</option></select>
+<label for="email">Your email (so we can respond)</label>
+<input type="email" id="email" maxlength="254" autocomplete="email" required placeholder="you@example.ie">
+<label for="reference">Which house or listing? (optional)</label>
+<input id="reference" maxlength="200" placeholder="County, house title or listing URL">
+<label for="message">Your request</label>
+<textarea id="message" minlength="20" maxlength="3000" required placeholder="Tell us what needs changing or removing. Please avoid including bank details or unnecessary personal information."></textarea>
+<div class="hp" aria-hidden="true"><label>Website <input tabindex="-1" autocomplete="off" id="website"></label></div>
+<p class="note">Only HouseLedger administrators can read the details of this request. Do not include account passwords, PPS numbers or bank information. We may need to verify your connection with a listing before altering it.</p>
+<button type="submit" id="submit">Send private request</button>
+<p id="error" role="alert" hidden></p><p id="success" role="status" hidden></p>
+</form></div>
+<p class="note">Read our <a href="privacy.html">privacy information</a>. HouseLedger cannot send automatic email confirmations yet, so please keep a copy of your message.</p>
+</main>
+<script>
+'use strict';
+const cfg=window.BUILDCOST_CONFIG||{};
+const f=document.getElementById('request-form');
+const error=document.getElementById('error'),success=document.getElementById('success'),btn=document.getElementById('submit');
+f.addEventListener('submit',async e=>{
+ e.preventDefault();
+ if(document.getElementById('website').value.trim()){success.hidden=false;success.textContent='Request received.';f.reset();return}
+ error.hidden=true;success.hidden=true;
+ if(!cfg.supabaseUrl||!cfg.supabaseAnonKey){error.textContent='The contact form is unavailable. Please try again later.';error.hidden=false;return}
+ btn.disabled=true;btn.textContent='Sending…';
+ const payload={request_type:document.getElementById('type').value,requester_email:document.getElementById('email').value.trim(),build_reference:document.getElementById('reference').value.trim()||null,message:document.getElementById('message').value.trim()};
+ try{
+ const resp=await fetch(cfg.supabaseUrl.replace(/\/$/,'')+'/rest/v1/privacy_requests',{method:'POST',headers:{'apikey':cfg.supabaseAnonKey,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(payload)});
+ if(!resp.ok)throw new Error('Could not send your request ('+resp.status+'). Please try again later.');
+ f.reset();success.textContent='Your private request has been recorded. Please keep a copy of the information you submitted.';success.hidden=false;
+ }catch(ex){error.textContent=ex.message;error.hidden=false}
+ finally{btn.disabled=false;btn.textContent='Send private request'}
+});
+</script></body></html>
