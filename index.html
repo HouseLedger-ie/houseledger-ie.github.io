@@ -252,4 +252,4 @@ function setupSubmission(){
 }
 function exportData(){const blob=new Blob([JSON.stringify({format:'buildcost-mvp-v1',exportedAt:new Date().toISOString(),submissions:uploads},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='buildcost-my-submissions.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>nav(b.dataset.page));document.getElementById('nav-share').onclick=()=>nav('submit');render();if(LIVE)fetchPublished();
-</script><div style="text-align:center;padding:10px 0 25px;font-size:12px"><a href="privacy.html">Privacy & contact information</a> · <a href="admin.html">Admin</a></div></body></html>
+</script><div style="text-align:center;padding:10px 0 25px;font-size:12px"><a href="privacy.html">Privacy information</a> · <a href="contact.html">Contact / removal requests</a> · <a href="admin.html">Admin</a></div></body></html>
