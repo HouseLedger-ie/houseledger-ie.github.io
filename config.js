@@ -4,5 +4,5 @@ window.BUILDCOST_CONFIG = {
   supabaseAnonKey: 'sb_publishable_zZ2P4_EH9f6nM2wnOg8-9g_c5RBwYEQ',
   // Fill this public key after creating a Cloudflare Turnstile widget.
   // DO NOT enable until Supabase secret is saved and public INSERT revoked.
-  turnstileSiteKey: ''
+  turnstileSiteKey: '0x4AAAAAAF8n6MwdYLGX6g8R'
 };
